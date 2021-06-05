@@ -175,7 +175,10 @@ int isTmax(int x) {
  *   Rating: 2
  */
 int allOddBits(int x) {
-  return 2;
+    // mask = 0xAAAAAAAA，但c语言最长只能使用0xAA
+    int mask = 0xAA + (0xAA << 8);
+    mask = mask + (mask << 16);
+    return !((x & mask) ^ mask);
 }
 /* 
  * negate - return -x 
@@ -185,7 +188,7 @@ int allOddBits(int x) {
  *   Rating: 2
  */
 int negate(int x) {
-  return 2;
+  return ~x + 1;
 }
 //3
 /* 
@@ -198,7 +201,10 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-  return 2;
+    int sign = 1 << 31;
+    int lowerFlag = (sign & (x + ~0x30 + 1)) >> 31; // x 减去 0x30，和符号位比较
+    int upperFlag = (sign & (x + ~(0x39 | sign))) >> 31; // 将 0x39 补码的首位反转，这样x减0x39大于0的话会使符号位为1
+    return !(lowerFlag | upperFlag);
 }
 /* 
  * conditional - same as x ? y : z 
@@ -208,6 +214,9 @@ int isAsciiDigit(int x) {
  *   Rating: 3
  */
 int conditional(int x, int y, int z) {
+    int bool_x = !!x; // 把x变成布尔值（0或者1）
+    int mask = ~bool_x+1; // 根据x的值，制作掩码，全是0或者全是1
+    return (y & mask) | (z & ~mask);
   return 2;
 }
 /* 
@@ -218,7 +227,22 @@ int conditional(int x, int y, int z) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
-  return 2;
+    int negX = ~x + 1; // 制作负x
+    int addY = negX + y; // 计算 y - x, 若 x > y 则该值为负，符号位为1
+    int checkSign = (addY >> 31) & 1; // 必须和1做按位与，因为可能是逻辑右移
+    
+    // 如果 y 和 x 符号不同，在 x, y 都很大的时候，相减可能会上溢或者下溢
+    int sign = 1 << 31;
+    int xSign = sign & x;
+    int ySign = sign & y;
+    int diffSign = xSign ^ ySign;
+    diffSign = (diffSign >> 31) & 1;
+    // 若 diffSign 为 1（即 x，y 异号），且 x 的符号位为 1（x 为负数）
+    // 说明 x < 0, y > 0, 返回 1 即可。
+    // -----------------------------
+    // 若 diffSign 为 1，但 x > 0, y < 0，此时应返回 0
+    // 则返回值前半部分返回 0，因此后半部分也应该返回 0
+    return (diffSign & (xSign >> 31)) | (!diffSign & !checkSign);
 }
 //4
 /* 
@@ -230,7 +254,7 @@ int isLessOrEqual(int x, int y) {
  *   Rating: 4 
  */
 int logicalNeg(int x) {
-  return 2;
+    return ((x | (~x + 1)) >> 31) ^ 1;
 }
 /* howManyBits - return the minimum number of bits required to represent x in
  *             two's complement
